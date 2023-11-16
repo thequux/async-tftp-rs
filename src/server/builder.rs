@@ -12,7 +12,7 @@ use super::{Handler, ServerConfig, TftpServer};
 use crate::error::{Error, Result};
 
 /// TFTP server builder.
-pub struct TftpServerBuilder<H: Handler> {
+pub struct TftpServerBuilder<H: Handler + Sync + Clone> {
     handle: H,
     addr: SocketAddr,
     socket: Option<Async<UdpSocket>>,
@@ -54,7 +54,7 @@ impl TftpServerBuilder<DirHandler> {
     }
 }
 
-impl<H: Handler> TftpServerBuilder<H> {
+impl<H: Handler + Sync  + Clone> TftpServerBuilder<H> {
     /// Create new builder with custom [`Handler`].
     pub fn with_handler(handler: H) -> Self {
         TftpServerBuilder {
@@ -186,7 +186,7 @@ impl<H: Handler> TftpServerBuilder<H> {
         let local_ip = socket.as_ref().local_addr()?.ip();
         Ok(TftpServer {
             socket,
-            handler: Arc::new(Mutex::new(self.handle)),
+            handler: self.handle,
             reqs_in_progress: Arc::new(Mutex::new(HashSet::new())),
             ex: Executor::new(),
             config,

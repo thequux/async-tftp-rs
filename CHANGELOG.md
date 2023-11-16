@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+### Changed 
+
+-  Handlers must now be Sync. If your handler  was not Sync, you may wrap it  
+  in an async Mutex
+- Handlers must now be Clone. If your handler was not Clone before or the 
+Clone impl was expensive,  you may wrap it in Arc.
+
+### Added 
+
 ## [0.3.6] - 2022-12-16
 
 ### Changed

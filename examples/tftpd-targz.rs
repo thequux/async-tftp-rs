@@ -11,6 +11,7 @@ use async_tar::{Archive, Entry};
 use async_tftp::packet;
 use async_tftp::server::{Handler, TftpServerBuilder};
 use std::net::SocketAddr;
+use std::sync::Arc;
 
 struct TftpdTarGzHandler {
     archive_path: PathBuf,
@@ -35,7 +36,7 @@ impl Handler for TftpdTarGzHandler {
     type Writer = Sink;
 
     async fn read_req_open(
-        &mut self,
+        &self,
         _client: &SocketAddr,
         path: &std::path::Path,
     ) -> Result<(Self::Reader, Option<u64>), packet::Error> {
@@ -68,7 +69,7 @@ impl Handler for TftpdTarGzHandler {
     }
 
     async fn write_req_open(
-        &mut self,
+        &self,
         _client: &SocketAddr,
         _path: &std::path::Path,
         _size: Option<u64>,
@@ -98,7 +99,7 @@ fn main() -> Result<()> {
         let handler = TftpdTarGzHandler::new(&opt.archive_path);
 
         // Build server
-        let tftpd = TftpServerBuilder::with_handler(handler)
+        let tftpd = TftpServerBuilder::with_handler(Arc::new(handler))
             .bind("0.0.0.0:6969".parse().unwrap())
             // Workaround to handle cases where client is behind VPN
             .block_size_limit(1024)

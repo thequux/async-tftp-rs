@@ -17,10 +17,10 @@ use crate::packet::{Packet, RwReq};
 /// TFTP server.
 pub struct TftpServer<H>
 where
-    H: Handler,
+    H: Handler + Sync,
 {
     pub(crate) socket: Async<UdpSocket>,
-    pub(crate) handler: Arc<Mutex<H>>,
+    pub(crate) handler: H,
     pub(crate) reqs_in_progress: Arc<Mutex<HashSet<SocketAddr>>>,
     pub(crate) ex: Executor<'static>,
     pub(crate) config: ServerConfig,
@@ -40,7 +40,7 @@ pub(crate) const DEFAULT_BLOCK_SIZE: usize = 512;
 
 impl<H: 'static> TftpServer<H>
 where
-    H: Handler,
+    H: Handler + Sync  + Clone,
 {
     /// Returns the listenning socket address.
     pub fn listen_addr(&self) -> Result<SocketAddr> {
@@ -86,15 +86,13 @@ where
     fn handle_rrq(&self, peer: SocketAddr, req: RwReq) {
         trace!("RRQ recieved (peer: {}, req: {:?})", &peer, &req);
 
-        let handler = Arc::clone(&self.handler);
+        let mut handler = self.handler.clone();
         let config = self.config.clone();
         let local_ip = self.local_ip;
 
         // Prepare request future
         let req_fut = async move {
             let (mut reader, size) = handler
-                .lock()
-                .await
                 .read_req_open(&peer, req.filename.as_ref())
                 .await
                 .map_err(Error::Packet)?;
@@ -125,15 +123,13 @@ where
     fn handle_wrq(&self, peer: SocketAddr, req: RwReq) {
         trace!("WRQ recieved (peer: {}, req: {:?})", &peer, &req);
 
-        let handler = Arc::clone(&self.handler);
+        let mut handler = self.handler.clone();
         let config = self.config.clone();
         let local_ip = self.local_ip;
 
         // Prepare request future
         let req_fut = async move {
             let mut writer = handler
-                .lock()
-                .await
                 .write_req_open(
                     &peer,
                     req.filename.as_ref(),

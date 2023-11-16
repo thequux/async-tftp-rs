@@ -10,6 +10,7 @@ use crate::error::{Error, Result};
 use crate::packet;
 
 /// Handler that serves read requests for a directory.
+#[derive(Clone)]
 pub struct DirHandler {
     dir: PathBuf,
     serve_rrq: bool,
