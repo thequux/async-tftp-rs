@@ -13,14 +13,15 @@ use async_tftp::server::{Handler, TftpServerBuilder};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+#[derive(Clone)]
 struct TftpdTarGzHandler {
-    archive_path: PathBuf,
+    archive_path: Arc<PathBuf>,
 }
 
 impl TftpdTarGzHandler {
     fn new(path: impl AsRef<Path>) -> Self {
         TftpdTarGzHandler {
-            archive_path: path.as_ref().to_owned(),
+            archive_path: Arc::new(path.as_ref().to_owned()),
         }
     }
 }
@@ -36,13 +37,14 @@ impl Handler for TftpdTarGzHandler {
     type Writer = Sink;
 
     async fn read_req_open(
-        &self,
+        &mut self,
         _client: &SocketAddr,
         path: &std::path::Path,
     ) -> Result<(Self::Reader, Option<u64>), packet::Error> {
         let req_path = strip_path_prefixes(path.into()).to_owned();
 
-        let file = File::open(self.archive_path.clone()).await?;
+        let path = self.archive_path.clone();
+        let file = File::open(&*path).await?;
         let archive = Archive::new(GzipDecoder::new(BufReader::new(file)));
 
         let mut entries = archive.entries()?;
@@ -69,7 +71,7 @@ impl Handler for TftpdTarGzHandler {
     }
 
     async fn write_req_open(
-        &self,
+        &mut self,
         _client: &SocketAddr,
         _path: &std::path::Path,
         _size: Option<u64>,
@@ -99,7 +101,7 @@ fn main() -> Result<()> {
         let handler = TftpdTarGzHandler::new(&opt.archive_path);
 
         // Build server
-        let tftpd = TftpServerBuilder::with_handler(Arc::new(handler))
+        let tftpd = TftpServerBuilder::with_handler(handler)
             .bind("0.0.0.0:6969".parse().unwrap())
             // Workaround to handle cases where client is behind VPN
             .block_size_limit(1024)
